@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Voice Calculator</title>
+</head>
+<body>
+  <h2>Voice Calculator</h2>
+  <button onclick="startRecognition()">🎤 Speak Calculation</button>
+  <p id="transcript"></p>
+  <p id="result"></p>
+  
+  <script>
+    function startRecognition() {
+      const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+      recognition.lang = 'en-US';
+      recognition.interimResults = false;
+      recognition.maxAlternatives = 1;
+
+      recognition.onresult = function(event) {
+        const transcript = event.results[0][0].transcript;
+        document.getElementById('transcript').innerText = "You said: " + transcript;
+
+        // 1. Send transcript to your Make.com webhook
+        fetch('https://hook.eu2.make.com/sae333w7l5jxmnc9o99wa8lqxtgpxiox', {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ transcript })
+        })
+        .then(response => response.json())
+        .then(data => {
+          const result = data.result || JSON.stringify(data);
+        document.getElementById('result').innerText = "Result: " + result;
+        
+        // --- TTS: Speak the result aloud ---
+        var utterance = new SpeechSynthesisUtterance(result.toString());
+        window.speechSynthesis.speak(utterance);
+        // -----------------------------------
+        })
+        .catch(err => {
+          document.getElementById('result').innerText = "Error: " + err;
+        });
+      };
+
+      recognition.onerror = function(event) {
+        document.getElementById('result').innerText = "Error: " + event.error;
+      };
+
+      recognition.start();
+    }
+  </script>
+</body>
+</html>
