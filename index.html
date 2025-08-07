@@ -6,7 +6,7 @@
 </head>
 <body>
   <h2>Voice Calculator</h2>
-  <button onclick="startRecognition()">🎤 Speak Calculation</button>
+  <button onclick="startRecognition()">🎤 Speak Calculator</button>
   <p id="transcript"></p>
   <p id="result"></p>
   
@@ -18,10 +18,25 @@
       recognition.maxAlternatives = 1;
 
       recognition.onresult = function(event) {
-        const transcript = event.results[0][0].transcript;
+        let transcript = event.results[0][0].transcript;
+
+        // --- Refined cleaning logic ---
+
+        // 1. Remove all commas
+        transcript = transcript.replace(/,/g, '');
+
+        // 2. Remove dots that are NOT part of numbers:
+        //    Keep dots that have digits before and after (decimal points)
+        transcript = transcript.replace(/(?<!\d)\.(?!\d)/g, '');
+
+        // 3. Normalize multiple spaces and trim
+        transcript = transcript.replace(/\s+/g, ' ').trim();
+
+        console.log("Cleaned transcript:", transcript);
+
         document.getElementById('transcript').innerText = "You said: " + transcript;
 
-        // 1. Send transcript to your Make.com webhook
+        // Send cleaned transcript to Make.com webhook
         fetch('https://hook.eu2.make.com/sae333w7l5jxmnc9o99wa8lqxtgpxiox', {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -29,13 +44,26 @@
         })
         .then(response => response.json())
         .then(data => {
-          const result = data.result || JSON.stringify(data);
-        document.getElementById('result').innerText = "Result: " + result;
-        
-        // --- TTS: Speak the result aloud ---
-        var utterance = new SpeechSynthesisUtterance(result.toString());
-        window.speechSynthesis.speak(utterance);
-        // -----------------------------------
+          const result = data.result !== undefined ? data.result : JSON.stringify(data);
+
+          // Check if result is numeric
+          const isNumeric = !isNaN(parseFloat(result)) && isFinite(result);
+
+          // Show Result or Message label accordingly
+          document.getElementById('result').innerText = isNumeric
+            ? "Result: " + result
+            : "Message: " + result;
+
+          // --- TTS speak the result or message ---
+          var utterance = new SpeechSynthesisUtterance(result.toString());
+
+          // Clear transcript & result after speech ends
+          utterance.onend = function() {
+            document.getElementById('result').innerText = '';
+            document.getElementById('transcript').innerText = '';
+          };
+
+          window.speechSynthesis.speak(utterance);
         })
         .catch(err => {
           document.getElementById('result').innerText = "Error: " + err;
